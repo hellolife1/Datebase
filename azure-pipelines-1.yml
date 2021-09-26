@@ -1,0 +1,57 @@
+variables:
+- name: BuildParameters.mavenPOMFile
+  value: pom.xml
+name: $(date:yyyyMMdd)$(rev:.r)
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: master
+jobs:
+- job: Job_1
+  displayName: Agent job 1
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+  - checkout: self
+    clean: true
+  - task: Maven@3
+    displayName: Maven pom.xml
+    inputs:
+      mavenPOMFile: $(BuildParameters.mavenPOMFile)
+  - task: CopyFiles@2
+    displayName: 'Copy Files to: $(build.artifactstagingdirectory)'
+    condition: succeededOrFailed()
+    inputs:
+      SourceFolder: $(system.defaultworkingdirectory)
+      Contents: '**/*.jar'
+      TargetFolder: $(build.artifactstagingdirectory)
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Artifact: drop'
+    condition: succeededOrFailed()
+    inputs:
+      PathtoPublish: $(build.artifactstagingdirectory)
+  - task: Gradle@2
+    displayName: gradlew build
+    inputs:
+      cwd: azure-pipelines.yml
+- job: Job_3
+  displayName: Agent job2
+  dependsOn: Job_1
+  condition: failed()
+  pool:
+    vmImage: ubuntu-16.04
+  steps:
+  - checkout: self
+    clean: true
+  - task: Maven@3
+    displayName: Maven pom.xml
+- job: Job_2
+  displayName: Agentless job2
+  timeoutInMinutes: 20
+  dependsOn: Job_1
+  pool: server
+  steps:
+  - task: Delay@1
+    displayName: Delay by 0 minutes
+...
